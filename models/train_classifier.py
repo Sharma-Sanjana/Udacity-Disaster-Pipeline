@@ -19,6 +19,7 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import classification_report
 from sklearn.tree import DecisionTreeClassifier
 
 
@@ -28,6 +29,7 @@ def load_data(database_filepath):
     name='sqlite:///' + database_filepath
     engine = create_engine(name)
     df = pd.read_sql_table('Disasters', con=engine)
+    df.dropna(subset=['original'], inplace=True)
     X = df.message
     Y = df.loc[:,'related':'direct_report']
     category_names=Y.columns
@@ -36,26 +38,23 @@ def load_data(database_filepath):
 
 def tokenize(text):
     """Tokenize and transform. Returns cleaned text"""
+    ##copy-pasted from previous lessons
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, "urlplaceholder")
+        
+    tokenizer=RegexpTokenizer(r'\w+')
+    tokens=tokenizer.tokenize(text)
+    ##from previous lessons
+    lemmatizer = WordNetLemmatizer()
     
-    def tokenize(text):
-        ##copy-pasted from previous lessons
-        detected_urls = re.findall(url_regex, text)
-        for url in detected_urls:
-            text = text.replace(url, "urlplaceholder")
-
-        tokenizer=RegexpTokenizer(r'\w+')
-        tokens=tokenizer.tokenize(text)
-        ##from previous lessons
-        lemmatizer = WordNetLemmatizer()
-
-        clean_tokens = []
-        for tok in tokens:
-            clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-            clean_tokens.append(clean_tok)
-
-        return clean_tokens
-
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        clean_tokens.append(clean_tok)
+        
+    return clean_tokens
 
 def build_model():
     """Returns model with pipeline and classifier"""
@@ -74,8 +73,8 @@ def build_model():
 
 def evaluate_model(model, X_test, Y_test, category_names):
     """Printing model results"""
-    y_pred=pipeline.predict(X_test)
-    print(classification_report(X_test, y_pred, target_names=category_names))
+    y_pred=model.predict(X_test)
+    print(classification_report(Y_test, y_pred, target_names=category_names))
     results=pd.DataFrame(columns=['Category','f_score','precision','recall'])
     
 
